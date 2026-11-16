@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Context, SidebarqaFollowFrame, SidebarqaHistoryEntry, SidebarqaHistoryRecord } from '../src/context-types.ts'
 import {
   eventsOfRecords,
@@ -6,6 +6,8 @@ import {
   mergeEntries,
   mintRequestId,
   modelSelectionOfProjection,
+  projectionFaceOf,
+  currentModelOf,
   remoteErrorText,
   sessionAddress,
   unwrapRemote,
@@ -123,6 +125,97 @@ describe('modelSelectionOfProjection', () => {
     expect(modelSelectionOfProjection('deepseek')).toBeNull()
     expect(modelSelectionOfProjection({ next: null, lastUsed: null })).toBeNull()
     expect(modelSelectionOfProjection({ next: { provider: 'p' } })).toBeNull()
+  })
+})
+
+describe('shared session-list projections', () => {
+  function mount(initial: Record<string, { values: Record<string, unknown> }> = {}) {
+    let projections = initial
+    const listeners = new Set<() => void>()
+    const release = vi.fn()
+    const scope = vi.fn((): Context | undefined => undefined)
+    const ctx = { sessions: {
+      list: {
+        getSnapshot: () => ({ byId: {}, projectionsBySession: projections }),
+        subscribe: (cb: () => void) => { listeners.add(cb); return () => { listeners.delete(cb); release() } },
+      },
+      scope,
+      retain: vi.fn(),
+      sessionOf: vi.fn(),
+    } } as unknown as Context
+    return { ctx, scope, release, listeners, update(next: typeof projections) {
+      projections = next
+      for (const cb of listeners) cb()
+    } }
+  }
+
+  it('reads an unopened child model without a client scope or retain', () => {
+    const model = { next: { provider: 'actual', model: 'child-model', reasoningEffort: 'high' } }
+    const { ctx, scope } = mount({ child: { values: { modelSelection: model } } })
+    expect(projectionFaceOf(ctx, 'child', 'modelSelection')?.getSnapshot()).toBe(model)
+    expect(currentModelOf(ctx, 'child')).toEqual(model.next)
+    expect(scope).not.toHaveBeenCalled()
+  })
+
+  it('keeps a usable adapter from the initially empty map until baseline arrives', () => {
+    const { ctx, update } = mount()
+    const face = projectionFaceOf(ctx, 'child', 'modelSelection')
+    expect(face).toBeDefined()
+    expect(face?.getSnapshot()).toBeUndefined()
+    const model = { next: { provider: 'p', model: 'm' } }
+    update({ child: { values: { modelSelection: model } } })
+    expect(face?.getSnapshot()).toBe(model)
+  })
+
+  it('subscribes to live list updates and releases exactly its subscription', () => {
+    const { ctx, update, listeners, release } = mount()
+    const face = projectionFaceOf(ctx, 'child', 'contextPressure')!
+    const notify = vi.fn()
+    const stop = face.subscribe(notify)
+    const value = { ratio: 0.25 }
+    update({ child: { values: { contextPressure: value } } })
+    expect(notify).toHaveBeenCalledOnce()
+    expect(face.getSnapshot()).toBe(value)
+    stop()
+    expect(listeners.size).toBe(0)
+    expect(release).toHaveBeenCalledOnce()
+    update({})
+    expect(notify).toHaveBeenCalledOnce()
+    expect(face.getSnapshot()).toBeUndefined()
+  })
+
+  it('isolates session ids and keys and preserves snapshot identity', () => {
+    const wanted = { next: { provider: 'p', model: 'wanted' } }
+    const { ctx } = mount({ a: { values: { modelSelection: wanted, contextPressure: 1 } }, b: { values: { modelSelection: 'other' } } })
+    const face = projectionFaceOf(ctx, 'a', 'modelSelection')!
+    expect(face.getSnapshot()).toBe(wanted)
+    expect(face.getSnapshot()).toBe(face.getSnapshot())
+    expect(projectionFaceOf(ctx, 'unknown', 'modelSelection')?.getSnapshot()).toBeUndefined()
+    expect(projectionFaceOf(ctx, 'a', 'unknown')?.getSnapshot()).toBeUndefined()
+  })
+
+  it('prefers the shared Host cache over a stale scoped face', () => {
+    const { ctx, scope } = mount({ child: { values: { modelSelection: { next: { provider: 'p', model: 'fresh' } } } } })
+    scope.mockImplementation(() => ctx)
+    expect(currentModelOf(ctx, 'child')?.model).toBe('fresh')
+    expect(scope).not.toHaveBeenCalled()
+  })
+
+  it('keeps the legacy scoped face when the new map is absent', () => {
+    const oldFace = { getSnapshot: () => ({ next: { provider: 'old', model: 'compatible' } }), subscribe: vi.fn() }
+    const ctx = { sessions: {
+      list: { getSnapshot: () => ({ byId: {} }) },
+      scope: vi.fn(() => ({})),
+      sessionOf: () => ({ projections: { faceOf: () => oldFace } }),
+    } } as unknown as Context
+    expect(projectionFaceOf(ctx, 'child', 'modelSelection')).toBe(oldFace)
+    expect(currentModelOf(ctx, 'child')?.model).toBe('compatible')
+  })
+
+  it('keeps absent legacy scopes advisory instead of throwing', () => {
+    const ctx = { sessions: { list: { getSnapshot: () => ({ byId: {} }) }, scope: () => undefined } } as unknown as Context
+    expect(projectionFaceOf(ctx, 'child', 'modelSelection')).toBeUndefined()
+    expect(currentModelOf(ctx, 'child')).toBeUndefined()
   })
 })
 

@@ -331,6 +331,8 @@ export interface SidebarqaSessionListSnapshot {
   byId: Record<string, SidebarqaSessionSummary>
   /** Arrival lifecycle: `empty` together with `ready` means "truly no sessions". */
   phase?: string
+  /** Shared Host projections, including sessions with no retained client scope. Optional for older hosts. */
+  projectionsBySession?: Readonly<Record<string, { values: Readonly<Record<string, unknown>> }>>
 }
 
 /**

@@ -1,6 +1,6 @@
 # dsh-sidebar-qa
 
-> **B612-LP maintenance fork · 1.2.3-b612.2**, based on [ChenRuoT's upstream](https://github.com/ChenRuoT/dsh-sidebar-qa). Failed model selection can no longer silently submit with a different global default. An unavailable configured model falls back explicitly to the parent; failed deliberate picks stop submission. The current Host selection API also saves the default for future sessions, a known side effect. Prefer hot recomposition and client reload on current DSH; historical restart notes below are not a blanket requirement. Live Desktop activation and real Q&A remain unverified; passing tests alone do not establish them.
+> **B612-LP maintenance fork · 1.2.3-b612.3**, based on [ChenRuoT's upstream](https://github.com/ChenRuoT/dsh-sidebar-qa). Failed model selection can no longer silently submit with a different global default. An unavailable configured model falls back explicitly to the parent; failed deliberate picks stop submission. The current Host selection API also saves the default for future sessions, a known side effect. Prefer hot recomposition and client reload on current DSH; historical restart notes below are not a blanket requirement. Live Desktop activation and real Q&A remain unverified; passing tests alone do not establish them.
 
 <!-- Hero -->
 <div align="center">

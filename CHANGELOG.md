@@ -2,6 +2,14 @@
 
 本项目的版本遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)，日志格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.2.3-b612.3] - 2026-11-17
+
+### Fixed
+
+- Read model/context projections for unopened follow-ups from the public shared session-list cache instead of requiring a retained client scope. Keep a live adapter from the initial empty map, subscribe to later Host control updates, and preserve the older scoped path when the new cache is absent.
+- Added seven regressions covering unopened/nested model reads, empty-baseline arrival, subscription cleanup, session/key isolation, snapshot identity, stale-scope preference and older hosts. No extra retain, history stream, UI redesign or main-session navigation.
+- Desktop activation is still a separate Host `package-moved` refusal; this patch does not claim that passing tests restores the running plugin.
+
 ## [1.2.3-b612.2] - 2026-11-16
 
 ### Fixed

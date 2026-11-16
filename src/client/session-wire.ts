@@ -138,11 +138,11 @@ export function modelSelectionOfProjection(value: unknown): SidebarqaModelSelect
  * session — the read path every panel surface shares (the context meter's
  * occupancy, the model seat's current selection).
  *
- * The session is resolved through `sessions.scope → sessionOf`, so the value
- * arrives for a follow-up the plugin never opens: projections are published
- * Host-wide by the session control stream, not by the on-screen session's
- * event window.
- * @returns the key's face, or undefined when the session resolves no scope.
+ * Modern hosts publish a shared projection cache on the session list, including
+ * unopened follow-ups. Keep an adapter even while its initial map is empty, so
+ * React can observe a later control baseline without retaining another session.
+ * Older hosts fall back to `sessions.scope → sessionOf`.
+ * @returns the key's face, or undefined when neither shared cache nor scope exists.
  */
 export function projectionFaceOf(
   ctx: Context,
@@ -150,6 +150,14 @@ export function projectionFaceOf(
   key: string,
 ): SidebarqaObservableSnapshot<unknown> | undefined {
   try {
+    const list = ctx.sessions.list
+    const shared = list?.getSnapshot().projectionsBySession
+    if (shared !== null && typeof shared === 'object' && !Array.isArray(shared)) {
+      return {
+        getSnapshot: () => list.getSnapshot().projectionsBySession?.[sessionId]?.values?.[key],
+        subscribe: (cb) => list.subscribe(cb),
+      }
+    }
     const scoped = ctx.sessions.scope(sessionId)
     if (scoped === undefined) return undefined
     return ctx.sessions.sessionOf(scoped)?.projections.faceOf(key)
