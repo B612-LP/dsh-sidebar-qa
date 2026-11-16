@@ -1,12 +1,12 @@
 {
   "name": "dsh-sidebar-qa",
-  "version": "1.2.2",
+  "version": "1.2.3-b612.2",
   "description": "DSH web plugin: select conversation text -> ask in a right-side panel -> a dedicated follow-up session (❓<topic>) in the same workspace, without interrupting the main conversation. Runs on DSH's own right sidebar, with no extra dependencies.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ChenRuoT/dsh-sidebar-qa"
+    "url": "https://github.com/B612-LP/dsh-sidebar-qa"
   },
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -68,9 +68,11 @@
     "react-dom": "^18.2.0"
   },
   "peerDependenciesMeta": {
-    "cordis": {
-      "optional": true
-    }
+    "@deepseek-ai/dsh-client-locale": { "optional": true },
+    "@deepseek-ai/dsh-client-ui-primitives": { "optional": true },
+    "cordis": { "optional": true },
+    "react": { "optional": true },
+    "react-dom": { "optional": true }
   },
   "devDependencies": {
     "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",

@@ -1,5 +1,7 @@
 # dsh-sidebar-qa
 
+> **B612-LP 维护分支 · 1.2.3-b612.2**：基于 [ChenRuoT 上游](https://github.com/ChenRuoT/dsh-sidebar-qa)，修复回答模型选择失败仍继续发送的问题；配置模型不可用时明确回退到父模型，手选模型失败则停止提交。当前 Host 的选择模型接口还会保存新会话默认值，这是已知副作用。当前 DSH 优先热重组+客户端刷新；下方历史版本记录中的重启说明不是当前版本的统一要求。真实桌面加载/问答尚未验收，不能仅凭测试通过认定可用。
+
 <!-- Hero -->
 <div align="center">
   <b style="font-size: 1.15em;">划选即问，侧边栏内嵌问答</b><br /><br />
@@ -101,9 +103,9 @@ dsh plugin --profile web add dsh-sidebar-qa
 dsh plugin --profile web add <本仓库路径>
 ```
 
-重启 `dsh web`（host 半改动需要重启；client 改动浏览器硬刷新即可）。
+当前 DSH 请优先使用应用内 Plugin Manager 安装/更新，查看回执及实际插件状态，然后刷新客户端页面。不要仅因 host 改动就默认退出或重启。
 
-> DSH `0.2.1-alpha.2+` 的 profile **不允许覆盖安装**：升级时先 `dsh plugin --profile web remove dsh-sidebar-qa`，再 `add` 新版本。桌面版请在**完全退出应用**后执行 CLI，或直接用应用内 Plugins 页；桌面 profile 是 `--profile desktop`。
+> 换安装来源时，按 Plugin Manager 的要求先移除再安装；桌面 profile 是 `desktop`，不要在应用运行期间另外启动 CLI 去改同一 profile。若热重组返回 `package-moved`，表示整个 profile 的运行期包路径映射拒绝替换，不等于插件已生效；需取得具体冲突包再处理，不要猜删其他插件。
 
 ## 使用
 

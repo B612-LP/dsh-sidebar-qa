@@ -100,6 +100,15 @@ describe('interpolation', () => {
     expect(t('histWorkspace', { name: 'my-workspace' })).toBe('Workspace: my-workspace')
   })
 
+  it.each(['zh', 'en'])('shows the accepted route and provider-default effort without claiming a retained child projection (%s)', locale => {
+    attachLocale(new FakeLocale(locale))
+    const copy = t('askModelFallback', { model: 'route/accepted-model', effort: t('modelProviderDefault') })
+    expect(copy).toContain('route/accepted-model')
+    expect(copy).toContain(t('modelProviderDefault'))
+    expect(copy).not.toMatch(/\{(?:model|effort)\}/)
+    expect(copy).not.toMatch(/下方|shown below/)
+  })
+
   it('leaves the text untouched when no params are given', () => {
     attachLocale(new FakeLocale('en'))
     expect(t('timeMinutes')).toBe('{n}m')

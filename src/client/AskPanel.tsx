@@ -427,9 +427,16 @@ export function AskPanel(props: AskPanelProps) {
         setActiveChildId(result.sideSessionId)
         // The inherit fork can degrade to compressed when the parent is
         // mid-turn; surface that so the user knows the context was not full.
-        if (result.strategy !== strategy) {
-          setStrategyNote(t('askDegradedToCompressed'))
-        }
+        const notes = [
+          ...(result.strategy !== strategy ? [t('askDegradedToCompressed')] : []),
+          ...(result.modelFallback && result.acceptedSelection !== undefined
+            ? [t('askModelFallback', {
+              model: `${result.acceptedSelection.provider}/${result.acceptedSelection.model}`,
+              effort: result.acceptedSelection.reasoningEffort ?? t('modelProviderDefault'),
+            })]
+            : []),
+        ]
+        if (notes.length > 0) setStrategyNote(notes.join(' '))
         store.setPendingQuote(sessionId, null)
         // Consume a meta-carried quote after it was sent, so refocusing the tab
         // (or a page reload, where the meta persists) never resurfaces it.

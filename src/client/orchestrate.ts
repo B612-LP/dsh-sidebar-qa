@@ -25,6 +25,7 @@ import type { SidebarqaHistoryStrategy } from '../config.ts'
 import { workspaceOwningSession } from './history-scope.ts'
 import { sidebarqaApi, type ContextResult, type SidebarqaConfigView } from './api.ts'
 import { currentModelOf, mintRequestId, unwrapRemote } from './session-wire.ts'
+import { selectAnswerModel } from './select-answer-model.ts'
 import { buildFirstMessage, followUpTitle, parseUserMessage, topicFromQuote } from './injection.ts'
 import { hasTurnEnded, transcriptOf } from './answer.ts'
 import { buildTitleInput } from '../title.ts'
@@ -40,6 +41,10 @@ export interface AskResult {
   degraded: boolean
   /** The strategy actually used (equals the requested one unless a fallback fired). */
   strategy: SidebarqaHistoryStrategy
+  /** The unavailable configured answer model was replaced by the parent's. */
+  modelFallback?: boolean
+  /** The actual selection accepted by the Host, not a catalog default. */
+  acceptedSelection?: SidebarqaModelSelection
 }
 
 /** Progress phases reported to the panel (准备中 → 回答中). */
@@ -70,33 +75,6 @@ async function tryRename(ctx: Context, sideSessionId: string, title: string): Pr
     if (!result.ok) console.warn('[dsh-sidebar-qa] rename failed:', result.error.message)
   } catch (error) {
     console.warn('[dsh-sidebar-qa] rename failed:', error)
-  }
-}
-
-/** Best-effort model selection (default deepseek-v4-flash, thinking off; a
- *  panel-picked override wins when present). */
-async function trySelectModel(
-  ctx: Context,
-  sideSessionId: string,
-  config: SidebarqaConfigView,
-  override?: SidebarqaModelSelection,
-): Promise<void> {
-  try {
-    const result = await ctx.remote.session.selectModel({
-      sessionId: sideSessionId,
-      provider: override?.provider ?? config.answerProvider,
-      model: override?.model ?? config.answerModel,
-      // All-or-nothing on the effort axis: an override that deliberately carries
-      // NO effort means "follow the provider default" and must not be topped up
-      // with the configured effort (which would force `off` onto a thinking
-      // model the user just picked).
-      ...(override === undefined
-        ? { reasoningEffort: config.answerReasoningEffort }
-        : override.reasoningEffort === undefined ? {} : { reasoningEffort: override.reasoningEffort }),
-    })
-    if (!result.ok) console.warn('[dsh-sidebar-qa] selectModel failed:', result.error.message)
-  } catch (error) {
-    console.warn('[dsh-sidebar-qa] selectModel failed:', error)
   }
 }
 
@@ -230,14 +208,15 @@ export async function askFollowUp(
   const context = await contextPromise
 
   await tryRename(ctx, sideSessionId, followUpTitle(topicFromQuote(quote.text, prompts.fallbackTopic)))
-  await trySelectModel(ctx, sideSessionId, config, input.modelOverride)
+  const answerModel = await selectAnswerModel(ctx.remote.session, sideSessionId, config, currentModel, input.modelOverride)
 
   const text = buildFirstMessage(context.text, quote, question, label, locale)
   await tryPrompt(ctx, sideSessionId, text)
 
   store.addChild(parentSessionId, sideSessionId)
   onPhase?.('answering')
-  return { sideSessionId, parentSessionId, degraded: context.degraded, strategy }
+  return { sideSessionId, parentSessionId, degraded: context.degraded, strategy,
+    modelFallback: answerModel.fallback, acceptedSelection: answerModel.selection }
 }
 
 /**

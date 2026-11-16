@@ -54,6 +54,7 @@ export const zh = {
   askSeedDivider: '↑ 上方为主对话历史',
   askSeedDividerMore: '↑ 上方为主对话历史，继续向上滚动加载',
   askDegradedToCompressed: '主对话正在回答中，已改用「压缩」模式，稍后可在主对话空闲时再试「全量继承」。',
+  askModelFallback: '配置的追问模型不可用，已改用主对话模型。本次已选：{model}；思考档位：{effort}。',
   /** Switcher row whose DSH session was archived: shown, labelled, not clickable. */
   askStaleArchived: '这条追问已在 DSH 中归档，无法再读取或继续。可在 DSH 的「已归档会话」里恢复，或从这里移除。',
   askStaleDeleted: '这条追问的会话已不存在（已删除）。可从这里移除。',
@@ -174,6 +175,7 @@ export const en: Record<CopyKey, string> = {
   askSeedDivider: '↑ Inherited main-conversation history',
   askSeedDividerMore: '↑ Inherited main-conversation history — scroll up to load more',
   askDegradedToCompressed: 'The main conversation is still answering, so "Compressed" was used instead. Try "Inherit full history" again once it is idle.',
+  askModelFallback: 'The configured follow-up model is unavailable. Using the main conversation model. Selected: {model}; reasoning: {effort}.',
   askStaleArchived: 'This follow-up is archived in DSH, so it can no longer be read or continued. Restore it from DSH\'s archived sessions, or remove it here.',
   askStaleDeleted: 'This follow-up session no longer exists (deleted). You can remove it here.',
   askStaleRemoveTitle: 'Remove from the follow-up panel (the DSH session itself is untouched)',

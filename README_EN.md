@@ -1,5 +1,7 @@
 # dsh-sidebar-qa
 
+> **B612-LP maintenance fork · 1.2.3-b612.2**, based on [ChenRuoT's upstream](https://github.com/ChenRuoT/dsh-sidebar-qa). Failed model selection can no longer silently submit with a different global default. An unavailable configured model falls back explicitly to the parent; failed deliberate picks stop submission. The current Host selection API also saves the default for future sessions, a known side effect. Prefer hot recomposition and client reload on current DSH; historical restart notes below are not a blanket requirement. Live Desktop activation and real Q&A remain unverified; passing tests alone do not establish them.
+
 <!-- Hero -->
 <div align="center">
   <b style="font-size: 1.15em;">Select. Ask. Answer in the sidebar.</b><br /><br />
@@ -101,9 +103,9 @@ dsh plugin --profile web add dsh-sidebar-qa
 dsh plugin --profile web add <this repo path>
 ```
 
-Restart `dsh web` (host-half changes need a restart; client-half changes only need a browser hard refresh).
+On current DSH, use the in-app Plugin Manager, verify its application receipt and the live plugin state, then reload the client page. Host-half changes alone are not a blanket reason to restart.
 
-> DSH `0.2.1-alpha.2+` profiles **refuse to install over an installed plugin**: upgrade by running `dsh plugin --profile web remove dsh-sidebar-qa`, then `add` the new version. For the desktop app, run the CLI only after **fully quitting** the application, or use the in-app Plugins page; its profile is `--profile desktop`.
+> When changing the installation source, follow Plugin Manager's remove-then-install guidance. The Desktop profile is `desktop`; do not launch a competing CLI writer for that profile while the app is running. A `package-moved` hot-recomposition refusal concerns runtime package paths across the whole profile. It is not successful activation; identify the conflicting package instead of removing unrelated plugins by guesswork.
 
 ## Usage
 
