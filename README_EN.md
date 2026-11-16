@@ -1,6 +1,6 @@
 # dsh-sidebar-qa
 
-> **B612-LP maintenance fork · 1.2.3-b612.3**, based on [ChenRuoT's upstream](https://github.com/ChenRuoT/dsh-sidebar-qa). Failed model selection can no longer silently submit with a different global default. An unavailable configured model falls back explicitly to the parent; failed deliberate picks stop submission. The current Host selection API also saves the default for future sessions, a known side effect. Prefer hot recomposition and client reload on current DSH; historical restart notes below are not a blanket requirement. Live Desktop activation and real Q&A remain unverified; passing tests alone do not establish them.
+> **B612-LP maintenance fork · 1.2.3-b612.4**, based on [ChenRuoT's upstream](https://github.com/ChenRuoT/dsh-sidebar-qa). Failed model selection can no longer silently submit with a different global default. An unavailable configured model falls back explicitly to the parent; failed deliberate picks stop submission. The current Host selection API also saves the default for future sessions, a known side effect. Prefer hot recomposition and client reload on current DSH; historical restart notes below are not a blanket requirement. Live Desktop activation and real Q&A remain unverified; passing tests alone do not establish them.
 
 <!-- Hero -->
 <div align="center">
@@ -22,7 +22,7 @@
 
 - **📝 Select-and-ask**: select any text in a conversation → floating “Ask” button → an embedded Q&A in the right panel, without ever leaving the main window; **the panel auto-expands even when collapsed**, so “Ask” always gives visible feedback
 - **💬 Add to chat**: the other button on the same popover appends the selection to the **current session's main composer** as a `>` blockquote and focuses it (caret on the line below), **without creating a session or opening the sidebar** — for when you just want to keep talking in place ([issue #11](https://github.com/ChenRuoT/dsh-sidebar-qa/issues/11))
-- **🧠 Smart summary**: a fast no-thinking model compresses the main conversation context into a small summary, injected together with the quoted selection in the first message
+- **🧠 Smart summary**: compresses earlier context and includes it with recent context and the quote. With no summary channel selected, it inherits the parent's complete model and reasoning effort; select an explicit summary channel/model/effort for fast no-thinking compression. Failed summaries show an incomplete-context notice and are not cached as success.
 - **🔀 Three context strategies**: switch per ask between **inherit full history** (fork + prefix-cache hit), **compressed** and **trim** — from the in-panel selector or the configured default
 - **🔗 Dedicated sessions**: each follow-up is a real DSH session in the same workspace (`❓<topic>`), continuable and archivable, with zero interruption to the main conversation
 - **🪆 Nested follow-ups**: select text inside a follow-up conversation and ask again — follow-ups nest arbitrarily deep

@@ -2,6 +2,15 @@
 
 本项目的版本遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)，日志格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.2.3-b612.4] - 2026-11-17
+
+### Fixed
+
+- With no explicit summary provider, inherit the parent's complete provider/model/effort tuple instead of combining its provider with a configured DeepSeek model. Explicit providers and legacy provider-only requests keep their configured route. Inherited effort is omitted when the parent leaves it unspecified.
+- Failed, aborted, empty or unavailable background summaries retain any recent context, report degradation in the panel, and are never cached as success. Successful cache entries are invalidated by route, effort, budget or window changes without retaining an entry for every settings edit.
+- The settings description now states that the summary model/effort fields apply to an explicit summary channel. Titles remain best-effort; no new retry layer or title-generation rewrite was added.
+- Host activation and authenticated UI acceptance remain unverified; these code changes do not bypass the existing Desktop `package-moved` guard.
+
 ## [1.2.3-b612.3] - 2026-11-17
 
 ### Fixed

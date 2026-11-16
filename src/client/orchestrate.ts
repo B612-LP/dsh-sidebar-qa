@@ -190,7 +190,7 @@ export async function askFollowUp(
     ...(config.summarizeProvider !== ''
       ? { provider: config.summarizeProvider }
       : currentModel !== undefined
-        ? { provider: currentModel.provider }
+        ? { parentSelection: currentModel }
         : {}),
   }).catch((): ContextResult => ({ degraded: true, text: null, sourceSeq: -1, reason: 'network' }))
 

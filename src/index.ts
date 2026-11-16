@@ -5,11 +5,11 @@
  * context method reads the main session's current model surface through
  * `ctx.sessionQuery.readSurface` and, per strategy:
  * - `inherit`: nothing to assemble — the client forks the parent instead.
- * - `compressed`: compress the EARLIER window with a fast no-thinking model
- *   through `ctx.llm.stream` and keep the RECENT band verbatim.
+ * - `compressed`: compress the EARLIER window with the explicit summary model
+ *   or the parent's complete selection, and keep the RECENT band verbatim.
  * - `trim`: keep the last `trimWindowMessages` segments verbatim, no model.
- * Any failure degrades to `{ degraded: true }` — the client then skips the
- * context block and still answers.
+ * Any summary failure reports `{ degraded: true }` and retains recent context
+ * when available; the client shows a warning and still answers.
  *
  * Both the context and the title method accept an optional `locale` field
  * ('zh' | 'en'): the host has no locale signal of its own, so the client sends
@@ -128,6 +128,7 @@ export interface TitleResult {
 interface CacheEntry {
   sourceSeq: number
   summary: string
+  fingerprint: string
 }
 
 /** One API method dispatch table entry. */
@@ -306,6 +307,7 @@ function buildApi(
         strategy?: unknown
         provider?: unknown
         model?: unknown
+        parentSelection?: unknown
         budgetTokens?: unknown
         locale?: unknown
       }
@@ -324,12 +326,32 @@ function buildApi(
         return { degraded: false, text: null, sourceSeq: -1 }
       }
 
-      const provider = typeof record.provider === 'string' && record.provider !== ''
+      // Explicit routes (including legacy provider-only clients) keep their
+      // configured model/effort. Otherwise inherit one complete parent tuple;
+      // never combine the parent's provider with the configured Flash model.
+      const explicitProvider = typeof record.provider === 'string' && record.provider !== ''
         ? record.provider
         : config.summarizeProvider
-      const model = typeof record.model === 'string' && record.model !== ''
-        ? record.model
-        : config.summarizeModel
+      const candidate = record.parentSelection
+      const parent = candidate !== null && typeof candidate === 'object' && !Array.isArray(candidate)
+        ? candidate as Record<string, unknown>
+        : undefined
+      const route = explicitProvider !== ''
+        ? {
+          provider: explicitProvider,
+          model: typeof record.model === 'string' && record.model !== '' ? record.model : config.summarizeModel,
+          reasoningEffort: config.summarizeReasoningEffort,
+        }
+        : parent !== undefined && typeof parent.provider === 'string' && parent.provider !== ''
+          && typeof parent.model === 'string' && parent.model !== ''
+          && (parent.reasoningEffort === undefined
+            || (typeof parent.reasoningEffort === 'string' && parent.reasoningEffort !== ''))
+          ? {
+            provider: parent.provider,
+            model: parent.model,
+            reasoningEffort: parent.reasoningEffort,
+          }
+          : undefined
       const budgetTokens = typeof record.budgetTokens === 'number' && Number.isInteger(record.budgetTokens) && record.budgetTokens > 0
         ? record.budgetTokens
         : config.summarizeBudgetTokens
@@ -348,13 +370,16 @@ function buildApi(
       // `compressed`: asymmetric window — the RECENT messages pass through
       // near-verbatim (they anchor the follow-up to the latest state); only the
       // EARLIER background goes to the fast model for compression.
-      // The locale is part of the key: without it a zh→en switch would keep
-      // serving the cached Chinese summary until the parent produces a new
-      // message. (This Map has no eviction policy; the axis at most doubles it,
-      // and each entry is a single summary string.)
-      const cacheKey = `${strategy}:${locale}:${mainSessionId}`
+      // A successful summary is reusable only for the same route and context
+      // settings. Keep omitted effort distinct from an explicit 'off'.
+      // Keep only one entry per session/locale, not one per settings edit.
+      const cacheKey = JSON.stringify([strategy, locale, mainSessionId])
+      const fingerprint = JSON.stringify([
+        route?.provider ?? null, route?.model ?? null, route?.reasoningEffort ?? null,
+        budgetTokens, config.recentWindowMessages, config.backgroundWindowMessages,
+      ])
       const cached = cache.get(cacheKey)
-      if (cached !== undefined && cached.sourceSeq === sourceSeq) {
+      if (cached !== undefined && cached.sourceSeq === sourceSeq && cached.fingerprint === fingerprint) {
         return { degraded: false, text: cached.summary, sourceSeq }
       }
 
@@ -365,33 +390,39 @@ function buildApi(
       // the strongest attention position instead of the opening topic.
       const earlierText = formatBackground(earlier, config.backgroundWindowMessages, BACKGROUND_SEGMENT_MAX, locale)
 
-      // Compress the background only when there is earlier content AND a provider.
-      // Any failure here leaves the background empty — the verbatim recent window
-      // still carries the current state, so the ask is never blocked.
+      // Preserve recent context on failure, but never label/cache a missing
+      // background as a successful compression. No earlier text needs no LLM.
       let background = ''
-      if (earlierText.trim() !== '' && provider !== '') {
+      let degraded = earlierText.trim() !== ''
+      if (degraded && route !== undefined) {
         try {
           const chunks = ctx.llm.stream({
-            provider,
-            model: await modelId(provider, model),
+            provider: route.provider,
+            model: await modelId(route.provider, route.model),
             messages: [userMessage(earlierText)],
             system: backgroundSystem(locale),
             maxTokens: budgetTokens,
-            reasoningEffort: config.summarizeReasoningEffort,
+            ...(route.reasoningEffort !== undefined ? { reasoningEffort: route.reasoningEffort } : {}),
             signal: AbortSignal.timeout(SUMMARIZE_TIMEOUT_MS),
           })
           const assembled = await assembleText(chunks)
-          if (!assembled.failed) background = assembled.text.trim()
+          if (!assembled.failed && assembled.text.trim() !== '') {
+            background = assembled.text.trim()
+            degraded = false
+          }
         } catch {
-          // background stays empty; the recent window still carries the answer
+          // The caller sees degradation; a later ask may retry the same source.
         }
       }
 
       const text = composeSummary(background, recentText, locale)
+      if (degraded) {
+        return { degraded: true, text: text.trim() === '' ? null : text, sourceSeq, reason: 'summary-unavailable' }
+      }
       if (text.trim() === '') {
         return { degraded: true, text: null, sourceSeq, reason: 'empty-surface' }
       }
-      cache.set(cacheKey, { sourceSeq, summary: text })
+      cache.set(cacheKey, { sourceSeq, summary: text, fingerprint })
       return { degraded: false, text, sourceSeq }
     },
     title: async (payload): Promise<TitleResult> => {

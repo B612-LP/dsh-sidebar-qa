@@ -174,8 +174,8 @@ export function ConfigPanel(): ReactElement {
     }
     if (field.type === 'catalog' && field.source === 'summarizeProvider') {
       // The summary channel changed: re-anchor the summary model. Switching to
-      // "inherit" (empty) keeps the current model (it is always used on the
-      // inherited channel); a concrete channel re-anchors like the answer row.
+      // "inherit" (empty) keeps the saved explicit model for a later switch
+      // back (and best-effort titles); context inherits the parent's full tuple.
       const providers = catalog?.providers ?? []
       const previousModel = String(current?.summarizeModel ?? '')
       if (raw === CATALOG_INHERIT_VALUE) {

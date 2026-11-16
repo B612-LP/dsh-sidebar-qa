@@ -429,6 +429,7 @@ export function AskPanel(props: AskPanelProps) {
         // mid-turn; surface that so the user knows the context was not full.
         const notes = [
           ...(result.strategy !== strategy ? [t('askDegradedToCompressed')] : []),
+          ...(result.degraded ? [t('askContextIncomplete')] : []),
           ...(result.modelFallback && result.acceptedSelection !== undefined
             ? [t('askModelFallback', {
               model: `${result.acceptedSelection.provider}/${result.acceptedSelection.model}`,

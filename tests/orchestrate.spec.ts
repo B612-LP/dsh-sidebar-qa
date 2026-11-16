@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Context, SidebarqaModelSelection, SidebarqaRemoteResult } from '../src/context-types.ts'
 import { SIDEBARQA_DEFAULTS } from '../src/config.ts'
 import { askFollowUp } from '../src/client/orchestrate.ts'
-import { sidebarqaApi } from '../src/client/api.ts'
+import { sidebarqaApi, type ContextResult } from '../src/client/api.ts'
 import { currentModelOf } from '../src/client/session-wire.ts'
 import type { SidebarqaStore } from '../src/client/store.ts'
 
@@ -43,6 +43,76 @@ beforeEach(() => {
   vi.mocked(sidebarqaApi.config).mockResolvedValue({ ...SIDEBARQA_DEFAULTS })
   vi.mocked(sidebarqaApi.context).mockResolvedValue({ degraded: false, text: 'context', sourceSeq: 1 })
   vi.mocked(currentModelOf).mockReturnValue(parentModel)
+})
+
+describe('summary selection payload and degradation', () => {
+  it('sends the complete parent selection rather than a provider-only hybrid for default compression', async () => {
+    const { ask } = mount()
+    await ask('compressed')
+    expect(sidebarqaApi.context).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      mainSessionId: 'parent', strategy: 'compressed', parentSelection: parentModel,
+    }))
+    const payload = vi.mocked(sidebarqaApi.context).mock.calls[0]?.[0]
+    expect(payload).not.toHaveProperty('provider')
+    expect(payload).not.toHaveProperty('model')
+    expect(payload).not.toHaveProperty('reasoningEffort')
+  })
+
+  it('leaves explicit summary model and effort to Host configuration instead of passing the parent', async () => {
+    const { ask } = mount()
+    vi.mocked(sidebarqaApi.config).mockResolvedValue({
+      ...SIDEBARQA_DEFAULTS, summarizeProvider: 'summary-route', summarizeModel: 'summary-model', summarizeReasoningEffort: 'max',
+    })
+    await ask('compressed')
+    expect(sidebarqaApi.context).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ provider: 'summary-route' }))
+    const payload = vi.mocked(sidebarqaApi.context).mock.calls[0]?.[0]
+    expect(payload).not.toHaveProperty('parentSelection')
+    expect(payload).not.toHaveProperty('model')
+    expect(payload).not.toHaveProperty('reasoningEffort')
+  })
+
+  it('omits inherited selection when the parent has no model projection, without guessing a provider', async () => {
+    const { ask } = mount()
+    vi.mocked(currentModelOf).mockReturnValue(undefined)
+    await ask('compressed')
+    const payload = vi.mocked(sidebarqaApi.context).mock.calls[0]?.[0]
+    expect(payload).not.toHaveProperty('parentSelection')
+    expect(payload).not.toHaveProperty('provider')
+  })
+
+  it('propagates summary degradation and still prompts only the child with preserved recent context', async () => {
+    const { ask, session } = mount()
+    vi.mocked(sidebarqaApi.context).mockResolvedValue({
+      degraded: true, text: 'preserved recent context', sourceSeq: 4, reason: 'summary-unavailable',
+    })
+    expect(await ask('compressed')).toMatchObject({ degraded: true, sideSessionId: 'child', strategy: 'compressed' })
+    expect(session.prompt).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      sessionId: 'child', content: [{ type: 'text', text: expect.stringContaining('preserved recent context') }],
+    }))
+  })
+
+  it('propagates a context request failure without claiming recent text was available', async () => {
+    const { ask, session } = mount()
+    vi.mocked(sidebarqaApi.context).mockRejectedValue(new Error('context route offline'))
+    expect(await ask('compressed')).toMatchObject({ degraded: true, sideSessionId: 'child' })
+    expect(session.prompt).toHaveBeenCalledOnce()
+    expect(session.prompt.mock.calls[0]?.[0]).toMatchObject({ sessionId: 'child' })
+    expect(session.prompt.mock.calls[0]?.[0].content[0].text).not.toContain('undefined')
+  })
+
+  it('waits for context assembly before selecting the answer model or prompting', async () => {
+    const { ask, session } = mount()
+    let finishContext!: (result: ContextResult) => void
+    vi.mocked(sidebarqaApi.context).mockReturnValue(new Promise(resolve => { finishContext = resolve }))
+    const pending = ask('compressed')
+    await vi.waitFor(() => expect(session.create).toHaveBeenCalledOnce())
+    expect(session.selectModel).not.toHaveBeenCalled()
+    expect(session.prompt).not.toHaveBeenCalled()
+    finishContext({ degraded: true, text: 'recent context', sourceSeq: 4, reason: 'summary-unavailable' })
+    await pending
+    expect(session.selectModel).toHaveBeenCalledOnce()
+    expect(session.prompt).toHaveBeenCalledOnce()
+  })
 })
 
 describe('model-safe independent follow-up orchestration', () => {

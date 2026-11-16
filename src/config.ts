@@ -47,11 +47,11 @@ export interface SidebarqaConfig {
   trimWindowMessages: number
 
   // ── Summarize (fast no-thinking compression) ─────────────────────────────
-  /** Registered provider route for the fast model; '' = inherit the main session's provider. */
+  /** Summary provider; '' inherits the parent's complete model selection and effort. */
   summarizeProvider: string
-  /** Fast no-thinking chat model id. */
+  /** Summary model for an explicit provider (also used for best-effort titles). */
   summarizeModel: string
-  /** Thinking effort for the fast model: Off / High / Max. */
+  /** Summary effort for an explicit provider: Off / High / Max. */
   summarizeReasoningEffort: SidebarqaReasoningEffort
   /** Output budget of the generated BACKGROUND summary, in tokens (soft bound). */
   summarizeBudgetTokens: number
