@@ -2,7 +2,7 @@
 
 ## Scope
 
-Maintenance fork of <https://github.com/ChenRuoT/dsh-sidebar-qa>, version `1.2.3-b612.4`. No DSH core patch, profile-file edit, preset change, process restart, authentication bypass or unrelated plugin removal was performed.
+Maintenance fork of <https://github.com/ChenRuoT/dsh-sidebar-qa>, version `1.2.3-b612.4`. No DSH core patch, manual profile-file edit, preset change, process restart, authentication bypass or unrelated plugin removal was performed. The final activation used the installed market's normal toggle API, which persisted the QA enable decision through its own state and patch writers.
 
 ## Fix and review
 
@@ -46,35 +46,46 @@ git diff --check
 - The installed Host and both Client build files have SHA-256 hashes identical to the tested b612.4 local build: `lib/index.js` = `74ba1d8b29a8b446599a700e49cae81d65480bd8fc8d4ed73491a3332e5a1aad`; `lib/client.js` = `0bdbb255812e5775cf4808d6f5b21eda1fab43b7b92952d0ab08f1d045bbc5de`; `lib/client-registry.js` = `36984093d17696c3f6657540cf2e2d30f9c5a8b10313dac6ffa1143de0f337b6`.
 - Checks above are local. No GitHub Actions run was returned for the earlier b612.2 source commit; remote CI success is not claimed. Maintenance release tags deliberately do not match the inherited `v*` npm-publishing trigger.
 
-## Desktop deployment: NOT activated
+## Desktop deployment: activated without restarting
 
-Plugin Manager's official remove-then-install path installed `1.2.3-b612.4` into the current Desktop profile. Package installation exited 0, with a pnpm peer-dependency warning; no unsupported dependency fix was attempted. Application still returned:
+Plugin Manager installed `1.2.3-b612.4`, but its profile-wide reconciliation returned `package-moved`. Earlier reports correctly distinguished installation from activation; the later investigation below found a separate, actionable reason QA could not stay enabled. No further package reinstall was required.
 
-```json
-{"application":"restart-required","restartReason":"package-moved","warnings":[]}
+### Actual blocker: the market's persisted disable list
+
+The installed `dshmarket` still had `dsh-sidebar-qa` in its own `<profile>/.dsh-market/state.json` disable list. That state is separate from the profile bundle declaration and the user patch. Its `internal/plugin` observer in `lib/routes.js:819–834` immediately live-disables any newly started matching plugin unless an explicit outside enable overrides the market record.
+
+A short-lived, scoped Node-host Inspector session identified the existing Loader entry and captured only QA lifecycle call sites. The disposal came from `dshmarket/lib/themes.js:188` calling `Entry.update`, not from QA or a compatibility rejection. The helper's name is misleading here: `setEntryDisabled` is a general plugin switch, not a theme-classification decision. The QA callback was verified against the tested installed build, and the installed DSH/Node engine constraints passed with prerelease-aware semver.
+
+A direct in-memory enable was not sufficient: the market guard immediately reversed it. The final repair used the market's existing same-origin API:
+
+```http
+POST /dsh-market/toggle
+Content-Type: application/json
+
+{"name":"dsh-sidebar-qa","enabled":true}
 ```
 
-A separate live `list_plugins` check still reports:
+The response reported `ok:true`, `enabled:true`, activation `state:"live"`, `restart:false`, and `refresh:true`. Its normal writers removed only QA from the market disable list and recorded the QA row's enable decision. The package manifest and root Cordis configuration were unchanged; the user patch changed through the market's own writer. Other disabled packages remained disabled.
+
+Independent live Plugin Manager inspection then returned:
 
 ```json
-{"entryId":"include:sidebar-qa","moduleName":"dsh-sidebar-qa","enabled":false,"fiberPhase":null}
+{"entryId":"include:sidebar-qa","moduleName":"dsh-sidebar-qa","enabled":true,"fiberPhase":"active"}
 ```
 
-Therefore **installed is not active, and restored usability has not been demonstrated**. Removing the old QA package alone had already produced the same profile-wide refusal. Current receipts omit the specific conflicting package. Without the original process's live resolution mapping, it is unsafe to blame QA or delete unrelated packages.
+The Host process retained the same PID, QA reached active Fiber state `2`, and all **261 other Loader entries** retained their previous fiber identities and enable states. The real `/sidebarqa/api/config` and `/sidebarqa/api/catalog` endpoints both answered successfully and exposed the installed provider/model catalog. Existing model preferences were left untouched; the tested parent-model fallback remains available when the old configured provider is absent.
 
-Current DSH generally supports hot recomposition; this particular retained-path refusal is a separate Host issue. Do not use this report as a blanket instruction to restart or as proof of successful hot loading.
+### Diagnostic and remaining boundaries
 
-### Read-only investigation boundaries
+- The standard Node Inspector was enabled only on `127.0.0.1:9229` for bounded Host-only diagnostics, without breakpoints, a paused Host, heap scans, browser CDP, credentials or authentication bypass. A separate Node-only probe verified the approach first. Each attachment closed the Inspector; the port was verified no longer listening.
+- No DSH diagnostic plugin or new preset tool was installed. Temporary raw snapshots and PID-specific scripts remain local under ignored `.artifacts/`, not in the repository or release.
+- The live resolution table was finally read: it retained the billion-context dependency paths for `iconv-lite` and `safer-buffer`, unlike the newly derived package order. The broader profile-publication guard was not overridden or rewritten. Restoring this feature did not require publishing a new profile-wide resolution table, removing those dependencies, stopping better-sidebar, changing font settings, or restarting DSH.
+- The earlier generic installation receipt is not a blanket restart requirement, and the remaining profile-wide resolver discrepancy is not claimed repaired by this target-only activation.
 
-- The b612.4 remove/install operations both still returned the same refusal; their logs were operations `gdwVrP` and `ZCvZfm`. A fresh live listing after installation again showed QA disabled with no fiber. No unrelated packages were removed.
-- The current CLI exposes configuration dumps and package forwarding, not a live-resolution export. Bundle/version listings reread disk metadata and cannot reconstruct the process's original installation snapshot.
-- The supported loopback Inspector is not among the 260 live plugin entries. It was not installed/enabled, and no ports, credentials or alternative backends were probed to obtain runtime access.
-- Package-manager logs show only the QA package addition/removal. They do not exclude path rearrangement of retained dependencies. Physical installation-file timestamps precede process startup; Electron's virtual ASAR timestamps are not evidence of a recent update.
-- Official Desktop operation journals contain the generic `package-moved` receipt, not the conflicting package name. Precise keyword checks of official crash logs and macOS unified logs found no additional retained-resolution detail. Source confirms the resolver's original message carries package names only, and both app-boot and plugin-manager catch paths discard it without logging it. No old/new directories were present in that exception to recover.
-- Consequently no specific old/new conflicting package directory has been proved. Repeating unrelated installs or guessing a package to delete would not be a justified fix.
+## UI / real model answer: user-confirmed
 
-## UI / real model answer: NOT tested
+BrowserSkill's separate Mac Agent Window could not authenticate to the existing Desktop UI; it was closed rather than using credentials or another backend. It did not provide the final visual acceptance evidence.
 
-BrowserSkill could connect to the user's verified Mac browser instance, but the Agent Window showed `dsh web authentication required; reopen the URL printed by dsh web.` Human login assistance timed out, and the session was closed. No credentials were obtained and no alternative backend was used.
+At **2026-11-17 12:51 (Asia/Shanghai)**, after instructions to refresh only the current DSH window with Command+R, select text, choose Ask and submit a short explanation request, the user explicitly selected **“出现按钮，而且能回答”** (the button appears and it can answer). This confirms the selection action and a real answer through the existing UI. The exact model identity and detailed panel appearance were not independently captured; no claim of agent-driven visual verification is made.
 
-Selection popover, panel layout, a real answer and the absence of main-conversation interruption still require an authenticated, activated client. Unit tests and code review are not substitutes for that acceptance test.
+**Outcome: the user-confirmed text-selection Q&A feature is restored without restarting DSH.**

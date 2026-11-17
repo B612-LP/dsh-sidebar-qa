@@ -1,6 +1,6 @@
 # dsh-sidebar-qa
 
-> **B612-LP maintenance fork · 1.2.3-b612.4**, based on [ChenRuoT's upstream](https://github.com/ChenRuoT/dsh-sidebar-qa). Failed model selection can no longer silently submit with a different global default. An unavailable configured model falls back explicitly to the parent; failed deliberate picks stop submission. The current Host selection API also saves the default for future sessions, a known side effect. Prefer hot recomposition and client reload on current DSH; historical restart notes below are not a blanket requirement. Live Desktop activation and real Q&A remain unverified; passing tests alone do not establish them.
+> **B612-LP maintenance fork · 1.2.3-b612.4**, based on [ChenRuoT's upstream](https://github.com/ChenRuoT/dsh-sidebar-qa). Failed model selection can no longer silently submit with a different global default. An unavailable configured model falls back explicitly to the parent; failed deliberate picks stop submission. The current Host selection API also saves the default for future sessions, a known side effect. Prefer hot recomposition and client reload on current DSH; historical restart notes below are not a blanket requirement. Activated without restarting on DSH 0.2.2-rc.3; the user confirmed the selection button and a real answer. A persisted market disable record had prevented activation. See the [verification record](./docs/FORK_VERIFICATION.md) for evidence and remaining boundaries; this does not establish every UI detail or compatibility with every release.
 
 <!-- Hero -->
 <div align="center">
